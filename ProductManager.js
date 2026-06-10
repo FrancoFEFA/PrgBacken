@@ -28,7 +28,7 @@ class ProductManager {
     }
 
     // Agrega un nuevo producto validando campos obligatorios y código único
-    // Parámetros: title, description, price, thumbnail, code, stock, status, category, thumbnails
+    // Parámetros: titulo, descripcion, precio, imagen, codigo, stock, estado, categoria, varias imágenes
     addProduct(title, description, price, thumbnail, code, stock, status, category, thumbnails) {
         // Validación: Verifica que todos los campos estén presentes y no estén vacíos
         const required = [title, description, price, thumbnail, code, stock, status, category, thumbnails];
@@ -36,9 +36,9 @@ class ProductManager {
             return { success: false, message: 'Todos los campos son obligatorios' };
         }
 
-        // Validación: Verifica que el código no se repita en la base de datos
+        // Validación: Verifica que el codigo no se repita en la base de datos
         if (this.products.some(p => p.code === code)) {
-            return { success: false, message: `El código '${code}' ya existe` };
+            return { success: false, message: `El codigo '${code}' ya existe` };
         }
 
         // Generación del ID: Toma el máximo ID existente + 1, o 1 si no hay productos

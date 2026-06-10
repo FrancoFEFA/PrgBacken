@@ -1,7 +1,7 @@
 const fs = require('fs');
 
 class CartManager {
-    // Ruta del archivo donde se persisten los carritos
+    // Ruta del archivo donde persisten los carritos
     static filePath = './carts.json';
 
     // Constructor: Carga los carritos desde el archivo JSON o inicializa un arreglo vacío
