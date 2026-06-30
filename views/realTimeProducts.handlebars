@@ -1,0 +1,90 @@
+<h1>Productos en Tiempo Real</h1>
+
+{{!-- Contenedor donde se renderiza dinámicamente la tabla de productos vía WebSocket --}}
+<div id="products-container">
+    <p>Cargando productos...</p>
+</div>
+
+<hr>
+
+<h2>Agregar Producto</h2>
+<form id="add-product-form">
+    <input type="text" name="title" placeholder="Título" required>
+    <input type="text" name="description" placeholder="Descripción" required>
+    <input type="number" name="price" placeholder="Precio" required>
+    <input type="text" name="thumbnail" placeholder="Thumbnail" required>
+    <input type="text" name="code" placeholder="Código" required>
+    <input type="number" name="stock" placeholder="Stock" required>
+    <input type="text" name="category" placeholder="Categoría" required>
+    <button type="submit">Agregar Producto</button>
+</form>
+
+{{!-- Script del cliente de Socket.io servido automáticamente por el servidor --}}
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    // Conecta al servidor de WebSocket
+    const socket = io();
+
+    // Cuando el servidor envía la lista actualizada de productos, re-renderiza la tabla
+    socket.on('updateProducts', (products) => {
+        const container = document.getElementById('products-container');
+
+        if (!products.length) {
+            container.innerHTML = '<p>No hay productos disponibles.</p>';
+            return;
+        }
+
+        let html = '<table><thead><tr>';
+        html += '<th>ID</th><th>Título</th><th>Descripción</th><th>Precio</th><th>Código</th><th>Stock</th><th>Categoría</th><th>Acción</th>';
+        html += '</tr></thead><tbody>';
+
+        products.forEach(p => {
+            html += '<tr>';
+            html += `<td>${p.id}</td>`;
+            html += `<td>${p.title}</td>`;
+            html += `<td>${p.description}</td>`;
+            html += `<td>$${p.price}</td>`;
+            html += `<td>${p.code}</td>`;
+            html += `<td>${p.stock}</td>`;
+            html += `<td>${p.category}</td>`;
+            // Botón para eliminar producto vía WebSocket
+            html += `<td><button class="btn-delete" data-id="${p.id}">Eliminar</button></td>`;
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    });
+
+    // Envía el formulario de agregar producto vía WebSocket en lugar de HTTP
+    document.getElementById('add-product-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const form = e.target;
+
+        // Recoge los campos del formulario
+        const product = {
+            title: form.title.value,
+            description: form.description.value,
+            price: Number(form.price.value),
+            thumbnail: form.thumbnail.value,
+            code: form.code.value,
+            stock: Number(form.stock.value),
+            category: form.category.value,
+            status: true,
+            thumbnails: []
+        };
+
+        // Envía el producto al servidor por WebSocket
+        socket.emit('addProduct', product);
+        form.reset();
+    });
+
+    // Delegación de eventos: escucha clicks en botones de eliminar dentro del contenedor
+    document.getElementById('products-container').addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-delete')) {
+            const productId = Number(e.target.dataset.id);
+            // Envía el ID del producto a eliminar por WebSocket
+            socket.emit('deleteProduct', productId);
+        }
+    });
+</script>

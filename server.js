@@ -1,101 +1,86 @@
 const express = require('express');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+const { engine } = require('express-handlebars');
 const ProductManager = require('./ProductManager');
 const CartManager = require('./CartManager');
+const productsRouter = require('./src/routes/products.router');
+const cartsRouter = require('./src/routes/carts.router');
 
 const app = express();
 const PORT = 8080;
 
+// Creamos el servidor HTTP nativo sobre Express para poder adjuntarle Socket.io
+const httpServer = createServer(app);
+const io = new Server(httpServer);
+
 // Middleware para parsear JSON en las peticiones
 app.use(express.json());
+
+// Configuración de Handlebars como motor de plantillas
+app.engine('handlebars', engine());
+app.set('view engine', 'handlebars');
+app.set('views', './views');
+
+// Guardamos la instancia de io en app para accederla desde las rutas HTTP
+app.set('io', io);
 
 // Instancias de los managers
 const productManager = new ProductManager();
 const cartManager = new CartManager();
 
-// ==================== RUTAS DE PRODUCTOS ====================
+// Montamos los routers de API con sus respectivos managers
+app.use('/api/products', productsRouter(productManager));
+app.use('/api/carts', cartsRouter(cartManager, productManager));
 
-// GET /api/products/ - Listar todos los productos
-app.get('/api/products', (req, res) => {
+// RUTAS DE VISTAS
+
+// GET / - Vista home con la lista de productos (renderizado estático del servidor)
+app.get('/', (req, res) => {
     const products = productManager.getProducts();
-    res.json(products);
+    res.render('home', { products });
 });
 
-// GET /api/products/:pid - Obtener un producto por ID
-app.get('/api/products/:pid', (req, res) => {
-    const pid = Number(req.params.pid);
-    const product = productManager.getProductById(pid);
-
-    if (!product) {
-        return res.status(404).json({ error: 'Producto no encontrado' });
-    }
-    res.json(product);
+// GET /realtimeproducts - Vista con WebSocket que se actualiza en tiempo real
+app.get('/realtimeproducts', (req, res) => {
+    const products = productManager.getProducts();
+    res.render('realTimeProducts', { products });
 });
 
-// POST /api/products/ - Agregar un nuevo producto
-app.post('/api/products', (req, res) => {
-    const result = productManager.addProduct(req.body);
+// WEBSOCKET
 
-    if (!result.success) {
-        return res.status(400).json({ error: result.message });
-    }
-    res.status(201).json(result.product);
+// Manejamos conexiones entrantes de Socket.io
+io.on('connection', (socket) => {
+    console.log('Cliente conectado por WebSocket');
+
+    // Al conectarse, enviamos la lista actual de productos al cliente
+    socket.emit('updateProducts', productManager.getProducts());
+
+    // El cliente envía un nuevo producto desde el formulario de la vista en tiempo real
+    socket.on('addProduct', (data) => {
+        const { title, description, price, thumbnail, code, stock, status, category, thumbnails } = data;
+        const result = productManager.addProduct(title, description, price, thumbnail, code, stock, status, category, thumbnails);
+
+        // Si se agregó correctamente, notificamos a TODOS los clientes (incluye al que envió)
+        if (result.success) {
+            io.emit('updateProducts', productManager.getProducts());
+        }
+    });
+
+    // El cliente solicita eliminar un producto desde la vista en tiempo real
+    socket.on('deleteProduct', (productId) => {
+        const result = productManager.deleteProduct(Number(productId));
+
+        // Si se eliminó correctamente, notificamos a todos los clientes
+        if (result.success) {
+            io.emit('updateProducts', productManager.getProducts());
+        }
+    });
 });
 
-// PUT /api/products/:pid - Actualizar un producto por ID
-app.put('/api/products/:pid', (req, res) => {
-    const pid = Number(req.params.pid);
-    const result = productManager.updateProduct(pid, req.body);
+// INICIO DEL SERVIDOR
 
-    if (!result.success) {
-        return res.status(404).json({ error: result.message });
-    }
-    res.json(result.product);
-});
-
-// DELETE /api/products/:pid - Eliminar un producto por ID
-app.delete('/api/products/:pid', (req, res) => {
-    const pid = Number(req.params.pid);
-    const result = productManager.deleteProduct(pid);
-
-    if (!result.success) {
-        return res.status(404).json({ error: result.message });
-    }
-    res.json({ message: 'Producto eliminado' });
-});
-
-// ==================== RUTAS DE CARRITOS ====================
-
-// POST /api/carts/ - Crear un nuevo carrito
-app.post('/api/carts', (req, res) => {
-    const cart = cartManager.createCart();
-    res.status(201).json(cart);
-});
-
-// GET /api/carts/:cid - Listar productos de un carrito por ID
-app.get('/api/carts/:cid', (req, res) => {
-    const cid = Number(req.params.cid);
-    const cart = cartManager.getCartById(cid);
-
-    if (!cart) {
-        return res.status(404).json({ error: 'Carrito no encontrado' });
-    }
-    res.json(cart.products);
-});
-
-// POST /api/carts/:cid/product/:pid - Agregar producto al carrito
-app.post('/api/carts/:cid/product/:pid', (req, res) => {
-    const cid = Number(req.params.cid);
-    const pid = Number(req.params.pid);
-    const result = cartManager.addProductToCart(cid, pid);
-
-    if (!result.success) {
-        return res.status(404).json({ error: result.message });
-    }
-    res.json(result.cart);
-});
-
-// ==================== INICIO DEL SERVIDOR ====================
-
-app.listen(PORT, () => {
+// Usamos httpServer.listen en lugar de app.listen para que Socket.io funcione
+httpServer.listen(PORT, () => {
     console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });

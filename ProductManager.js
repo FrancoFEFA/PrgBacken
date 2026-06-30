@@ -36,6 +36,16 @@ class ProductManager {
             return { success: false, message: 'Todos los campos son obligatorios' };
         }
 
+        // Validación: Verifica que price sea un número mayor a 0
+        if (typeof price !== 'number' || price <= 0) {
+            return { success: false, message: 'El precio debe ser un numero mayor a 0' };
+        }
+
+        // Validación: Verifica que stock sea un número mayor o igual a 0
+        if (typeof stock !== 'number' || stock < 0) {
+            return { success: false, message: 'El stock debe ser un numero mayor o igual a 0' };
+        }
+
         // Validación: Verifica que el codigo no se repita en la base de datos
         if (this.products.some(p => p.code === code)) {
             return { success: false, message: `El codigo '${code}' ya existe` };
