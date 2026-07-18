@@ -1,0 +1,103 @@
+<!-- Vista de productos con paginacion, filtros y ordenamiento -->
+<h1>Productos</h1>
+
+<!-- Formulario de filtros -->
+<div class="filters">
+    <form id="filter-form" method="GET" action="/products">
+        <label for="query">Buscar:</label>
+        <input type="text" id="query" name="query" value="{{query}}" placeholder="Categoria o texto...">
+
+        <label for="sort">Ordenar por precio:</label>
+        <select id="sort" name="sort">
+            <option value="">Sin orden</option>
+            <option value="asc" {{#if sortAsc}}selected{{/if}}>Menor a Mayor</option>
+            <option value="desc" {{#if sortDesc}}selected{{/if}}>Mayor a Menor</option>
+        </select>
+
+        <label for="limit">Productos por pagina:</label>
+        <input type="number" id="limit" name="limit" value="{{limit}}" min="1" max="100">
+
+        <button type="submit">Filtrar</button>
+    </form>
+</div>
+
+<!-- Lista de productos -->
+{{#if products.length}}
+<div class="products-grid">
+    {{#each products}}
+    <div class="product-card">
+        <h3>{{this.title}}</h3>
+        <p><strong>Precio:</strong> ${{this.price}}</p>
+        <p><strong>Categoria:</strong> {{this.category}}</p>
+        <p><strong>Stock:</strong> {{this.stock}}</p>
+        <div class="product-actions">
+            <a href="/products/{{this._id}}" class="btn-detail">Ver detalles</a>
+            <button class="btn-add-cart" data-product-id="{{this._id}}">Agregar al carrito</button>
+        </div>
+    </div>
+    {{/each}}
+</div>
+{{else}}
+<p>No hay productos disponibles.</p>
+{{/if}}
+
+<!-- Paginacion -->
+{{#if totalPages}}
+<div class="pagination">
+    {{#if hasPrevPage}}
+    <a href="/products?page={{prevPage}}&limit={{limit}}&sort={{sort}}&query={{query}}" class="page-link">Anterior</a>
+    {{/if}}
+
+    <span class="page-info">Pagina {{page}} de {{totalPages}}</span>
+
+    {{#if hasNextPage}}
+    <a href="/products?page={{nextPage}}&limit={{limit}}&sort={{sort}}&query={{query}}" class="page-link">Siguiente</a>
+    {{/if}}
+</div>
+{{/if}}
+
+<script>
+    // Obtenemos o creamos el carrito, guardando su ID en localStorage
+    async function getOrCreateCart() {
+        let cartId = localStorage.getItem('cartId');
+
+        if (cartId) {
+            // Verificamos que el carrito exista en la base de datos
+            try {
+                const response = await fetch(`/api/carts/${cartId}`);
+                if (response.ok) return cartId;
+            } catch {}
+        }
+
+        // Si no existe o hubo error, creamos uno nuevo
+        const cartResponse = await fetch('/api/carts', { method: 'POST' });
+        const cartData = await cartResponse.json();
+        cartId = cartData.payload._id;
+        localStorage.setItem('cartId', cartId);
+        return cartId;
+    }
+
+    // Agregar producto al carrito y mostrar confirmacion
+    document.querySelectorAll('.btn-add-cart').forEach(button => {
+        button.addEventListener('click', async (e) => {
+            const productId = e.target.dataset.productId;
+
+            try {
+                const cartId = await getOrCreateCart();
+
+                const response = await fetch(`/api/carts/${cartId}/product/${productId}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    alert('Producto agregado al carrito');
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                alert('Error al agregar al carrito');
+            }
+        });
+    });
+</script>

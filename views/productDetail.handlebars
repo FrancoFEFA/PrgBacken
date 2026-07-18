@@ -1,0 +1,69 @@
+<!-- Vista de detalle de un producto individual -->
+<h1>{{product.title}}</h1>
+
+<div class="product-detail">
+    <div class="product-info">
+        <p><strong>Descripcion:</strong> {{product.description}}</p>
+        <p><strong>Precio:</strong> ${{product.price}}</p>
+        <p><strong>Categoria:</strong> {{product.category}}</p>
+        <p><strong>Codigo:</strong> {{product.code}}</p>
+        <p><strong>Stock:</strong> {{product.stock}} unidades</p>
+        <p><strong>Estado:</strong> {{#if product.status}}Disponible{{else}}No disponible{{/if}}</p>
+
+        {{#if product.thumbnails.length}}
+        <div class="thumbnails">
+            <strong>Imagenes:</strong>
+            {{#each product.thumbnails}}
+            <img src="{{this}}" alt="Thumbnail del producto" class="thumbnail-img">
+            {{/each}}
+        </div>
+        {{/if}}
+    </div>
+
+    <div class="product-actions">
+        <button class="btn-add-cart" data-product-id="{{product._id}}">Agregar al carrito</button>
+        <a href="/products" class="btn-back">Volver a productos</a>
+    </div>
+</div>
+
+<script>
+    // Obtenemos o creamos el carrito, guardando su ID en localStorage
+    async function getOrCreateCart() {
+        let cartId = localStorage.getItem('cartId');
+
+        if (cartId) {
+            try {
+                const response = await fetch(`/api/carts/${cartId}`);
+                if (response.ok) return cartId;
+            } catch {}
+        }
+
+        const cartResponse = await fetch('/api/carts', { method: 'POST' });
+        const cartData = await cartResponse.json();
+        cartId = cartData.payload._id;
+        localStorage.setItem('cartId', cartId);
+        return cartId;
+    }
+
+    // Agregar producto al carrito y mostrar confirmacion
+    document.querySelector('.btn-add-cart').addEventListener('click', async (e) => {
+        const productId = e.target.dataset.productId;
+
+        try {
+            const cartId = await getOrCreateCart();
+
+            const response = await fetch(`/api/carts/${cartId}/product/${productId}`, {
+                method: 'POST'
+            });
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                alert('Producto agregado al carrito');
+            } else {
+                alert('Error: ' + data.message);
+            }
+        } catch (error) {
+            alert('Error al agregar al carrito');
+        }
+    });
+</script>

@@ -1,28 +1,28 @@
+<!-- Vista de inicio con listado completo de productos -->
 <h1>Lista de Productos</h1>
 
 {{#if products.length}}
 <table>
     <thead>
         <tr>
-            <th>ID</th>
-            <th>Título</th>
-            <th>Descripción</th>
+            <th>Titulo</th>
             <th>Precio</th>
-            <th>Código</th>
+            <th>Categoria</th>
             <th>Stock</th>
-            <th>Categoría</th>
+            <th>Acciones</th>
         </tr>
     </thead>
     <tbody>
         {{#each products}}
         <tr>
-            <td>{{this.id}}</td>
             <td>{{this.title}}</td>
-            <td>{{this.description}}</td>
             <td>${{this.price}}</td>
-            <td>{{this.code}}</td>
-            <td>{{this.stock}}</td>
             <td>{{this.category}}</td>
+            <td>{{this.stock}}</td>
+            <td>
+                <a href="/products/{{this._id}}" class="btn-detail">Ver detalles</a>
+                <button class="btn-add-cart" data-product-id="{{this._id}}">Agregar al carrito</button>
+            </td>
         </tr>
         {{/each}}
     </tbody>
@@ -30,3 +30,40 @@
 {{else}}
 <p>No hay productos disponibles.</p>
 {{/if}}
+
+<script>
+    // Obtenemos o creamos el carrito, guardando su ID en localStorage
+    async function getOrCreateCart() {
+        let cartId = localStorage.getItem('cartId');
+        if (cartId) {
+            try {
+                const response = await fetch(`/api/carts/${cartId}`);
+                if (response.ok) return cartId;
+            } catch {}
+        }
+        const cartResponse = await fetch('/api/carts', { method: 'POST' });
+        const cartData = await cartResponse.json();
+        cartId = cartData.payload._id;
+        localStorage.setItem('cartId', cartId);
+        return cartId;
+    }
+
+    // Agregar producto al carrito y mostrar confirmacion
+    document.querySelectorAll('.btn-add-cart').forEach(button => {
+        button.addEventListener('click', async (e) => {
+            const productId = e.target.dataset.productId;
+            try {
+                const cartId = await getOrCreateCart();
+                const response = await fetch(`/api/carts/${cartId}/product/${productId}`, { method: 'POST' });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    alert('Producto agregado al carrito');
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                alert('Error al agregar al carrito');
+            }
+        });
+    });
+</script>

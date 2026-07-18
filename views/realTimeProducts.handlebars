@@ -1,6 +1,6 @@
 <h1>Productos en Tiempo Real</h1>
 
-{{!-- Contenedor donde se renderiza dinámicamente la tabla de productos vía WebSocket --}}
+{{!-- Contenedor donde se renderiza dinamicamente la tabla de productos via WebSocket --}}
 <div id="products-container">
     <p>Cargando productos...</p>
 </div>
@@ -9,23 +9,49 @@
 
 <h2>Agregar Producto</h2>
 <form id="add-product-form">
-    <input type="text" name="title" placeholder="Título" required>
-    <input type="text" name="description" placeholder="Descripción" required>
+    <input type="text" name="title" placeholder="Titulo" required>
+    <input type="text" name="description" placeholder="Descripcion" required>
     <input type="number" name="price" placeholder="Precio" required>
     <input type="text" name="thumbnail" placeholder="Thumbnail" required>
-    <input type="text" name="code" placeholder="Código" required>
+    <input type="text" name="code" placeholder="Codigo" required>
     <input type="number" name="stock" placeholder="Stock" required>
-    <input type="text" name="category" placeholder="Categoría" required>
+    <input type="text" name="category" placeholder="Categoria" required>
     <button type="submit">Agregar Producto</button>
 </form>
 
-{{!-- Script del cliente de Socket.io servido automáticamente por el servidor --}}
+{{!-- Modal de edicion de producto --}}
+<div id="edit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000;">
+    <div style="background:#fff; padding:20px; border-radius:5px; max-width:500px; width:90%;">
+        <h2>Editar Producto</h2>
+        <form id="edit-form">
+            <input type="hidden" id="edit-id" name="edit-id">
+            <label>Titulo:</label>
+            <input type="text" id="edit-title" name="edit-title" required>
+            <label>Descripcion:</label>
+            <input type="text" id="edit-description" name="edit-description" required>
+            <label>Precio:</label>
+            <input type="number" id="edit-price" name="edit-price" required>
+            <label>Thumbnail:</label>
+            <input type="text" id="edit-thumbnail" name="edit-thumbnail" required>
+            <label>Codigo:</label>
+            <input type="text" id="edit-code" name="edit-code" required>
+            <label>Stock:</label>
+            <input type="number" id="edit-stock" name="edit-stock" required>
+            <label>Categoria:</label>
+            <input type="text" id="edit-category" name="edit-category" required>
+            <button type="submit">Guardar Cambios</button>
+            <button type="button" onclick="document.getElementById('edit-modal').style.display='none'">Cancelar</button>
+        </form>
+    </div>
+</div>
+
+{{!-- Script del cliente de Socket.io servido automaticamente por el servidor --}}
 <script src="/socket.io/socket.io.js"></script>
 <script>
     // Conecta al servidor de WebSocket
     const socket = io();
 
-    // Cuando el servidor envía la lista actualizada de productos, re-renderiza la tabla
+    // Cuando el servidor envia la lista actualizada de productos, re-renderiza la tabla
     socket.on('updateProducts', (products) => {
         const container = document.getElementById('products-container');
 
@@ -35,20 +61,24 @@
         }
 
         let html = '<table><thead><tr>';
-        html += '<th>ID</th><th>Título</th><th>Descripción</th><th>Precio</th><th>Código</th><th>Stock</th><th>Categoría</th><th>Acción</th>';
+        html += '<th>ID</th><th>Titulo</th><th>Descripcion</th><th>Precio</th><th>Codigo</th><th>Stock</th><th>Categoria</th><th>Accion</th>';
         html += '</tr></thead><tbody>';
 
         products.forEach(p => {
             html += '<tr>';
-            html += `<td>${p.id}</td>`;
+            html += `<td>${p._id}</td>`;
             html += `<td>${p.title}</td>`;
             html += `<td>${p.description}</td>`;
             html += `<td>$${p.price}</td>`;
             html += `<td>${p.code}</td>`;
             html += `<td>${p.stock}</td>`;
             html += `<td>${p.category}</td>`;
-            // Botón para eliminar producto vía WebSocket
-            html += `<td><button class="btn-delete" data-id="${p.id}">Eliminar</button></td>`;
+            // Botones de editar, agregar al carrito y eliminar
+            html += `<td>
+                <button class="btn-edit" data-id="${p._id}" data-title="${p.title}" data-description="${p.description}" data-price="${p.price}" data-thumbnail="${p.thumbnail}" data-code="${p.code}" data-stock="${p.stock}" data-category="${p.category}">Editar</button>
+                <button class="btn-add-cart" data-product-id="${p._id}">Agregar al carrito</button>
+                <button class="btn-delete" data-id="${p._id}">Eliminar</button>
+            </td>`;
             html += '</tr>';
         });
 
@@ -56,7 +86,7 @@
         container.innerHTML = html;
     });
 
-    // Envía el formulario de agregar producto vía WebSocket en lugar de HTTP
+    // Envia el formulario de agregar producto via WebSocket en lugar de HTTP
     document.getElementById('add-product-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const form = e.target;
@@ -74,17 +104,84 @@
             thumbnails: []
         };
 
-        // Envía el producto al servidor por WebSocket
+        // Envia el producto al servidor por WebSocket
         socket.emit('addProduct', product);
         form.reset();
     });
 
-    // Delegación de eventos: escucha clicks en botones de eliminar dentro del contenedor
-    document.getElementById('products-container').addEventListener('click', (e) => {
+    // Delegacion de eventos: escucha clicks en botones de editar, eliminar y agregar al carrito
+    document.getElementById('products-container').addEventListener('click', async (e) => {
         if (e.target.classList.contains('btn-delete')) {
-            const productId = Number(e.target.dataset.id);
-            // Envía el ID del producto a eliminar por WebSocket
+            const productId = e.target.dataset.id;
             socket.emit('deleteProduct', productId);
         }
+
+        if (e.target.classList.contains('btn-edit')) {
+            const data = e.target.dataset;
+            document.getElementById('edit-id').value = data.id;
+            document.getElementById('edit-title').value = data.title;
+            document.getElementById('edit-description').value = data.description;
+            document.getElementById('edit-price').value = data.price;
+            document.getElementById('edit-thumbnail').value = data.thumbnail;
+            document.getElementById('edit-code').value = data.code;
+            document.getElementById('edit-stock').value = data.stock;
+            document.getElementById('edit-category').value = data.category;
+            document.getElementById('edit-modal').style.display = 'flex';
+        }
+
+        if (e.target.classList.contains('btn-add-cart')) {
+            const productId = e.target.dataset.productId;
+            try {
+                let cartId = localStorage.getItem('cartId');
+                if (cartId) {
+                    try {
+                        const check = await fetch(`/api/carts/${cartId}`);
+                        if (!check.ok) cartId = null;
+                    } catch { cartId = null; }
+                }
+                if (!cartId) {
+                    const cartResponse = await fetch('/api/carts', { method: 'POST' });
+                    const cartData = await cartResponse.json();
+                    cartId = cartData.payload._id;
+                    localStorage.setItem('cartId', cartId);
+                }
+                const response = await fetch(`/api/carts/${cartId}/product/${productId}`, { method: 'POST' });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    alert('Producto agregado al carrito');
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                alert('Error al agregar al carrito');
+            }
+        }
+    });
+
+    // Cerrar modal de edicion
+    document.getElementById('edit-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'edit-modal') {
+            e.target.style.display = 'none';
+        }
+    });
+
+    // Enviar edicion de producto via WebSocket
+    document.getElementById('edit-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const id = form['edit-id'].value;
+
+        const product = {
+            title: form['edit-title'].value,
+            description: form['edit-description'].value,
+            price: Number(form['edit-price'].value),
+            thumbnail: form['edit-thumbnail'].value,
+            code: form['edit-code'].value,
+            stock: Number(form['edit-stock'].value),
+            category: form['edit-category'].value
+        };
+
+        socket.emit('editProduct', { id, product });
+        document.getElementById('edit-modal').style.display = 'none';
     });
 </script>

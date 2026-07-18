@@ -1,0 +1,90 @@
+<!-- Vista de un carrito especifico con sus productos -->
+<h1>Mi Carrito</h1>
+
+{{#if products.length}}
+<table>
+    <thead>
+        <tr>
+            <th>Producto</th>
+            <th>Precio Unitario</th>
+            <th>Cantidad</th>
+            <th>Subtotal</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{#each products}}
+        <tr>
+            <td>{{this.product.title}}</td>
+            <td>${{this.product.price}}</td>
+            <td>{{this.quantity}}</td>
+            <td>${{this.subtotal}}</td>
+            <td>
+                <button class="btn-remove" data-product-id="{{this.product._id}}">Eliminar</button>
+            </td>
+        </tr>
+        {{/each}}
+    </tbody>
+</table>
+
+<div class="cart-total">
+    <strong>Total: ${{total}}</strong>
+</div>
+
+<div class="cart-actions">
+    <button id="btn-clear-cart" class="btn-delete">Vaciar carrito</button>
+    <a href="/products" class="btn-back">Seguir comprando</a>
+</div>
+{{else}}
+<p style="margin-bottom: 15px;">Tu carrito esta vacio.</p>
+<a href="/products" class="btn-back">Ver productos</a>
+{{/if}}
+
+<script>
+    const cartId = '{{cartId}}';
+
+    // Solo activamos los eventos si hay un carrito real
+    if (cartId) {
+        // Eliminar un producto especifico del carrito
+        document.querySelectorAll('.btn-remove').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const productId = e.target.dataset.productId;
+
+                try {
+                    const response = await fetch(`/api/carts/${cartId}/products/${productId}`, {
+                        method: 'DELETE'
+                    });
+                    const data = await response.json();
+
+                    if (data.status === 'success') {
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                } catch (error) {
+                    alert('Error al eliminar el producto');
+                }
+            });
+        });
+
+        // Vaciar todo el carrito
+        document.getElementById('btn-clear-cart').addEventListener('click', async () => {
+            try {
+                const response = await fetch(`/api/carts/${cartId}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    // Limpiamos el localStorage y redirigimos a productos
+                    localStorage.removeItem('cartId');
+                    window.location.href = '/products';
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                alert('Error al vaciar el carrito');
+            }
+        });
+    }
+</script>
